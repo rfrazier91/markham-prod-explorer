@@ -6,6 +6,19 @@ const connStr = rawConn.replace('channel_binding=require', 'channel_binding=disa
 const pool = new Pool({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
 
 const num = v => (v == null ? null : Number(v));
+// ── XLSX export helpers ──
+const fmtVal = v => {
+  if (v == null) return null;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === 'string' && v !== '' && !isNaN(Number(v))) return Number(v);
+  return v;
+};
+// Keep only columns that exist in the table, in the given order
+const exportRows = (rows, cols) => {
+  const have = rows.length ? cols.filter(c => c in rows[0]) : cols;
+  return { cols: have, rows: rows.map(r => Object.fromEntries(have.map(c => [c, fmtVal(r[c])]))) };
+};
+
 const pick = (r, ...keys) => { for (const k of keys) if (r[k] != null) return r[k]; return null; };
 
 export const handler = async (event) => {
@@ -48,7 +61,15 @@ export const handler = async (event) => {
       casing_psi: num(r.casing_psi),
     }));
 
-    return { statusCode: 200, headers, body: JSON.stringify({ production, wellTests }) };
+    const pe = exportRows(prod.rows, ['report_date','battery','tank1_ft','tank1_in','tank1_bbls','tank2_ft','tank2_in','tank2_bbls','oil_produced_bbls','oil_hauled_bbls','swd_18f_bbls','swd_12k_bbls','swd_14k_bbls','water_produced_bbls','swd_discharge_psi','gas_sales_mcf','gas_produced_mcf']);
+    const we = exportRows(tests.rows, ['test_date','well_name','battery','well_type','oil_bopd','water_bwpd','gas_in_mcfd','gas_out_mcfd','tubing_psi','casing_psi']);
+
+    return { statusCode: 200, headers, body: JSON.stringify({
+      production, wellTests,
+      productionExport: pe.rows, productionExportCols: pe.cols,
+      wellTestsExport: we.rows, wellTestsExportCols: we.cols,
+      range: { start: start || null, end: end || null },
+    }) };
   } catch (err) {
     console.error('DB error:', err);
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
