@@ -136,7 +136,7 @@ function PasswordGate({ onAuth }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    const correct = import.meta.env.VITE_APP_PASSWORD || '4Remor@'
+    const correct = import.meta.env.VITE_APP_PASSWORD
     if (pw === correct) {
       sessionStorage.setItem('authed', '1')
       onAuth()
